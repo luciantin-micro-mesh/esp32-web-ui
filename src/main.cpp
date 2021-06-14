@@ -41,6 +41,7 @@
 // const char* WIFI_SSID = "a";
 // const char* WIFI_SSID_PASS = "12345678";
 
+////////////////////////////////////////////////////////////////////////////////
 // ----------------------------------------------------------------------------
 // SPIFFS initialization
 // ----------------------------------------------------------------------------
@@ -54,8 +55,12 @@ void initSPIFFS() {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+// ----------------------------------------------------------------------------
+// WebServer initialization
+// ----------------------------------------------------------------------------
 
 AsyncWebServer server(80);
+AsyncWebSocket ws("/ws");
 
 void network_scan(){
   Serial.println("scan start");
@@ -80,6 +85,43 @@ void network_scan(){
   }
 }
 
+
+void notifyWs(void *pvParameters){
+  vTaskDelay(1000);
+  (void) pvParameters;
+
+  for(;;){
+    ws.textAll("Hello World!");
+    vTaskDelay(100);
+  }
+}
+
+void onWsEvent(AsyncWebSocket       *server,  //
+             AsyncWebSocketClient *client,  //
+             AwsEventType          type,    // the signature of this function is defined
+             void                 *arg,     // by the `AwsEventHandler` interface
+             uint8_t              *data,    //
+             size_t                len) {   //
+
+    switch (type) {
+        case WS_EVT_CONNECT:
+            Serial.printf("WebSocket client #%u connected from %s\n", client->id(), client->remoteIP().toString().c_str());
+            break;
+        case WS_EVT_DISCONNECT:
+            Serial.printf("WebSocket client #%u disconnected\n", client->id());
+            break;
+        case WS_EVT_DATA:
+        case WS_EVT_PONG:
+        case WS_EVT_ERROR:
+            break;
+    }
+}
+
+void initWebSocket() {
+    ws.onEvent(onWsEvent);
+    server.addHandler(&ws);
+}
+
 void initWiFi() {
   // WiFi.begin(WIFI_SSID, WIFI_SSID_PASS);
   WiFi.begin(NET_SSID, NET_PWD);
@@ -90,7 +132,6 @@ void initWiFi() {
   }
   Serial.printf("\nLocal IP : %s\n", WiFi.localIP().toString().c_str());
 }
-
 
 void TaskSerialPrint(void *pvParameters){
   (void) pvParameters;
@@ -127,7 +168,40 @@ void TaskBlink(void *pvParameters){
 //   request->send(200);
 // }
 
+
 void handleUpload(AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final){
+  if(!index){
+    Serial.println((String)"UploadStart: " + filename);
+    // open the file on first call and store the file handle in the request object
+    request->_tempFile = SPIFFS.open("/"+filename, "w");
+  }
+  if(len) {
+    for(size_t i=0; i<len; i++){
+      Serial.write(data[i]);
+    }
+    // stream the incoming chunk to the opened file
+    request->_tempFile.write(data,len);
+  }
+  if(final){
+    Serial.println((String)"UploadEnd: " + filename + "," + index+len);
+    // close the file handle as the upload is now done
+    request->_tempFile.close();
+    request->send(200, "text/plain", "File Uploaded !");
+
+    File root = SPIFFS.open("/");
+    File file = root.openNextFile();
+
+    while(file){
+
+    Serial.print("FILE: ");
+    Serial.println(file.name());
+
+    file = root.openNextFile();
+    }
+  }
+}
+
+void handleUploadToSerial(AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final){
   if(!index){
     Serial.println((String)"UploadStart: " + filename);
   }
@@ -136,10 +210,10 @@ void handleUpload(AsyncWebServerRequest *request, String filename, size_t index,
   }
   if(final){
     Serial.println((String)"UploadEnd: " + filename + "," + index+len);
-    request->redirect("/files");
+    request->redirect("/");
   }
-}
 
+}
 
 
 void setup() {
@@ -155,11 +229,12 @@ void setup() {
   // network_scan();
 
   initWiFi();
+  initWebSocket();
   initSPIFFS();
 
 
   // xTaskCreatePinnedToCore(TaskSerialPrint, "TaskPrint", 1024, NULL, 2, NULL, CORE_1);
-  // xTaskCreatePinnedToCore(TaskBlink, "TaskBlink", 1024, NULL, 2, NULL, CORE_2);
+  xTaskCreatePinnedToCore(notifyWs, "notifyWs", 1024, NULL, 2, NULL, CORE_2);
 
   server.on("/doUpload", HTTP_POST, [](AsyncWebServerRequest *request) {},
       [](AsyncWebServerRequest *request, const String& filename, size_t index, uint8_t *data,
@@ -185,6 +260,12 @@ void setup() {
     DebugPrint(3);
     request->send(SPIFFS, "/favicon.png", String(), false, NULL);
   });
+
+  server.on("/files", HTTP_GET, [](AsyncWebServerRequest *request){
+    request->send(SPIFFS, "/files.html", "text/html");
+  });
+
+  server.serveStatic("/", SPIFFS, "/").setDefaultFile("index.html");
 
   // server.on("/upload", HTTP_POST, [](AsyncWebServerRequest *request) {
   //   DebugPrint(4);
@@ -230,5 +311,5 @@ void setup() {
 }
 
 void loop() {
-
+  ws.cleanupClients();
 }
