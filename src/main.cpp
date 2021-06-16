@@ -3,6 +3,8 @@
 #include <WiFi.h>
 #include "ESPAsyncWebServer.h"
 #include "wifi_settings.h"
+#include "ArduinoJson.h"
+#include <vector>
 // Network Settings
 // Build flags || wifi_settings.h
 // Wifi passwd and SSID :
@@ -85,6 +87,16 @@ void network_scan(){
   }
 }
 
+
+String WASM_MODULES[10];
+
+/*
+//  WS data
+//  const char * SPIFFS_files []
+//  String WASM_MODULES []
+//  unsigned int size_t SPIFFS free bytes
+//  
+*/
 
 void notifyWs(void *pvParameters){
   vTaskDelay(1000);
@@ -263,6 +275,33 @@ void setup() {
 
   server.on("/files", HTTP_GET, [](AsyncWebServerRequest *request){
     request->send(SPIFFS, "/files.html", "text/html");
+  });
+
+  server.on("/get-message", HTTP_GET, [](AsyncWebServerRequest *request) {
+    StaticJsonDocument<600> data;
+    JsonObject root = data.to<JsonObject>();
+    JsonArray Files = root.createNestedArray("data");
+
+    if (request->hasParam("message"))
+    {
+      data["message"] = request->getParam("message")->value();
+    }
+    else {
+      data["Used bytes"] = SPIFFS.usedBytes();
+
+      File root = SPIFFS.open("/");
+      File file = root.openNextFile();
+
+      while(file){
+        Serial.print("FILE: ");
+        Serial.println(file.name());
+        Files.add(String((const __FlashStringHelper*) file.name()));
+        file = root.openNextFile();
+      }
+    }
+    String response;
+    serializeJson(data, response);
+    request->send(200, "application/json", response);
   });
 
   server.serveStatic("/", SPIFFS, "/").setDefaultFile("index.html");
