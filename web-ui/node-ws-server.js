@@ -11,6 +11,7 @@ server.on('connection', function(socket) {
   socket.on('message', function(msg) {
     console.log(msg);  
     sockets.forEach(s => s.send(msg));
+    if(msg === "Update") console.log("UPDATE !");
   });
 
   // When a socket closes, or disconnects, remove it from the array.

@@ -114,7 +114,7 @@ void onWsEvent(AsyncWebSocket       *server,  //
              void                 *arg,     // by the `AwsEventHandler` interface
              uint8_t              *data,    //
              size_t                len) {   //
-
+    Serial.println("WS event");
     switch (type) {
         case WS_EVT_CONNECT:
             Serial.printf("WebSocket client #%u connected from %s\n", client->id(), client->remoteIP().toString().c_str());
@@ -253,31 +253,31 @@ void setup() {
                     size_t len, bool final) {handleUpload(request, filename, index, data, len, final);}
   );
 
-  server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
-    DebugPrint(0);
-    request->send(SPIFFS, "/index.html", String(), false, NULL);
-  });
+  // server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
+  //   DebugPrint(0);
+  //   request->send(SPIFFS, "/index.html", String(), false, NULL);
+  // });
 
-  server.on("/main.js", HTTP_GET, [](AsyncWebServerRequest *request){
-    DebugPrint(1);
-    request->send(SPIFFS, "/main.js", String(), false, NULL);
-  });
+  // server.on("/main.js", HTTP_GET, [](AsyncWebServerRequest *request){
+  //   DebugPrint(1);
+  //   request->send(SPIFFS, "/main.js", String(), false, NULL);
+  // });
 
-  server.on("/style.css", HTTP_GET, [](AsyncWebServerRequest *request){
-    DebugPrint(2);
-    request->send(SPIFFS, "/style.css", String(), false, NULL);
-  });
+  // server.on("/style.css", HTTP_GET, [](AsyncWebServerRequest *request){
+  //   DebugPrint(2);
+  //   request->send(SPIFFS, "/style.css", String(), false, NULL);
+  // });
 
-  server.on("/favicon.png", HTTP_GET, [](AsyncWebServerRequest *request){
-    DebugPrint(3);
-    request->send(SPIFFS, "/favicon.png", String(), false, NULL);
-  });
+  // server.on("/favicon.png", HTTP_GET, [](AsyncWebServerRequest *request){
+  //   DebugPrint(3);
+  //   request->send(SPIFFS, "/favicon.png", String(), false, NULL);
+  // });
 
-  server.on("/files", HTTP_GET, [](AsyncWebServerRequest *request){
-    request->send(SPIFFS, "/files.html", "text/html");
-  });
+  // server.on("/files", HTTP_GET, [](AsyncWebServerRequest *request){
+  //   request->send(SPIFFS, "/files.html", "text/html");
+  // });
 
-  server.on("/get-message", HTTP_GET, [](AsyncWebServerRequest *request) {
+  server.on("/metrics", HTTP_GET, [](AsyncWebServerRequest *request) {
     StaticJsonDocument<600> data;
     JsonObject root = data.to<JsonObject>();
     JsonArray Files = root.createNestedArray("data");
@@ -305,6 +305,7 @@ void setup() {
   });
 
   server.serveStatic("/", SPIFFS, "/").setDefaultFile("index.html");
+
 
   // server.on("/upload", HTTP_POST, [](AsyncWebServerRequest *request) {
   //   DebugPrint(4);
