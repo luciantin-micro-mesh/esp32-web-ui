@@ -60,8 +60,8 @@ export default {
     
     console.log("Starting connection to WebSocket Server...")
     // this.connection = new WebSocket(`ws://127.0.0.1:2020/`) // local test
-    // this.connection = new WebSocket(`ws://${window.location.hostname}`) // MCU
-    this.connection = new WebSocket(`ws://192.168.0.196`) // MCU
+    this.connection = new WebSocket(`ws://${window.location.hostname}/ws`) // MCU
+    // this.connection = new WebSocket(`ws://192.168.0.196`) // MCU
 
     this.connection.onerror = function(event){
       this.WSstatus = false;
@@ -90,7 +90,8 @@ export default {
     //
 
     // let getMetrics = () => {fetch("http:127.0.0.1/metrics").then(resp => this.ProcessMetricsJSON(resp)).catch(e => this.MetricsStatus = false);; } // local test
-    let getMetrics = () => {fetch(`http:192.168.0.196/metrics`).then(resp => this.ProcessMetricsJSON(resp)).catch(e => this.MetricsStatus = false); } // MCU ${window.location.hostname}
+    // let getMetrics = () => {fetch(`http:192.168.0.196/metrics`).then(resp => this.ProcessMetricsJSON(resp)).catch(e => this.MetricsStatus = false); } // MCU ${window.location.hostname}
+    let getMetrics = () => {fetch(`/metrics`).then(resp => this.ProcessMetricsJSON(resp)).catch(e => this.MetricsStatus = false); } // relative path to hostname
     console.log(window.location.hostname)
     setInterval(getMetrics, 1000);
 
