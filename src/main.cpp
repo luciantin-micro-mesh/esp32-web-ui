@@ -4,7 +4,9 @@
 #include "ESPAsyncWebServer.h"
 #include "wifi_settings.h"
 #include "ArduinoJson.h"
-#include <vector>
+#include <wasm3.h>
+#include <m3_env.h>
+
 // Network Settings
 // Build flags || wifi_settings.h
 // Wifi passwd and SSID :
@@ -39,9 +41,6 @@
 
 #define DEBUG true
 #define DebugPrint(a) if(DEBUG) Serial.println(a);
-
-// const char* WIFI_SSID = "a";
-// const char* WIFI_SSID_PASS = "12345678";
 
 ////////////////////////////////////////////////////////////////////////////////
 // ----------------------------------------------------------------------------
@@ -90,49 +89,6 @@ void network_scan(){
 
 String WASM_MODULES[10];
 
-/*
-//  WS data
-//  const char * SPIFFS_files []
-//  String WASM_MODULES []
-//  unsigned int size_t SPIFFS free bytes
-//  
-*/
-
-void notifyWs(void *pvParameters){
-  vTaskDelay(1000);
-  (void) pvParameters;
-
-  for(;;){
-    ws.textAll("Hello World!");
-    vTaskDelay(100);
-  }
-}
-
-void onWsEvent(AsyncWebSocket       *server,  //
-             AsyncWebSocketClient *client,  //
-             AwsEventType          type,    // the signature of this function is defined
-             void                 *arg,     // by the `AwsEventHandler` interface
-             uint8_t              *data,    //
-             size_t                len) {   //
-    Serial.println("WS event");
-    switch (type) {
-        case WS_EVT_CONNECT:
-            Serial.printf("WebSocket client #%u connected from %s\n", client->id(), client->remoteIP().toString().c_str());
-            break;
-        case WS_EVT_DISCONNECT:
-            Serial.printf("WebSocket client #%u disconnected\n", client->id());
-            break;
-        case WS_EVT_DATA:
-        case WS_EVT_PONG:
-        case WS_EVT_ERROR:
-            break;
-    }
-}
-
-void initWebSocket() {
-    ws.onEvent(onWsEvent);
-    server.addHandler(&ws);
-}
 
 void initWiFi() {
   // WiFi.begin(WIFI_SSID, WIFI_SSID_PASS);
