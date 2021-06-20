@@ -65,7 +65,7 @@ struct wasm_server
   int port;
 };
 
-int WASM_SERVER_PORT_COUNTER = 100;
+int WASM_SERVER_PORT_COUNTER = 1000;
 
 AsyncWebServer server(80);
 AsyncWebServer wast(81);
@@ -91,7 +91,7 @@ void NotifyWS(void *pvParameters){
   }
 }
 
-wasm_server* create_wasm_server(String filepath){
+wasm_server* create_wasm_server(String filepath, String fName){
       Serial.println("Creating server for file : "+filepath);
       wasm_server *tmp = new wasm_server;
       tmp->module = new wasm3_module_handler(filepath, &SPIFFS);
@@ -104,28 +104,33 @@ wasm_server* create_wasm_server(String filepath){
       
       Serial.println("Running function ...");
 
-      M3Result res = tmp->module->run("fun");
+      M3Result res = tmp->module->run(fName);
       Serial.println(res);
       // if(res != d_m3DoneConst)  request->send(200, "text/plain", "Error running function");    
       
 
       unsigned output = tmp->module->output;
       Serial.println(output);
+
+      M3Result rees = tmp->module->result;
+      Serial.println(rees);
       // request->send(200, "text/plain", String(output));
 
 
-      tmp->server->on("^(.*?)$", HTTP_GET, [](AsyncWebServerRequest *request){
-        // tmp->module->load();
-        
-        // Serial.println("Running function ...");
-
-        // M3Result res = tmp->module->run("fib", 6);
+      tmp->server->on("^(.*?)$", HTTP_GET, [tmp,fName](AsyncWebServerRequest *request){
+        Serial.println("-----------START----------");
+        Serial.println("Server response on port : "+String(tmp->port));
+        Serial.println("Running function ...");
+        tmp->module->run(fName);
+        Serial.println("Function response : "+String(tmp->module->output));
+        Serial.println("-----------END------------");
+        // M3Result res = tmp->module->run("fib");
         // if(res != d_m3DoneConst)  request->send(200, "text/plain", "Error running function");    
         
         // unsigned output = tmp->module->output;
-
+        // Serial.println("Output : "+String(output));
         // request->send(200, "text/plain", String(output));    
-        request->send(200, "text/plain", "asdasdasd");    
+        request->send(200, "text/plain", String(tmp->module->output));    
       });
 
       return tmp;
@@ -135,10 +140,6 @@ void handleUpload(AsyncWebServerRequest *request, String filename, size_t index,
   if(!index){
     Serial.println((String)"UploadStart: " + filename);
     request->_tempFile = SPIFFS.open("/"+filename, "w");
-
-    if(filename.endsWith("wasm")){
-      WASM_MODULES.push_back(create_wasm_server("/"+filename));
-    }
   }
   if(len) {
     // for(size_t i=0; i<len; i++){
@@ -151,6 +152,11 @@ void handleUpload(AsyncWebServerRequest *request, String filename, size_t index,
     request->_tempFile.close();
     request->send(200, "text/plain", "File Uploaded !");
   }
+
+
+  if(filename.endsWith("wasm")){
+    WASM_MODULES.push_back(create_wasm_server("/"+filename, filename.substring(0, filename.length()-5)));
+  }
 }
 
 
@@ -162,14 +168,23 @@ void scanForWasm(){
   while(file){
     if(((String)file.name()).endsWith("wasm")){
       Serial.println("Loading : "+((String)file.name()));
-      WASM_MODULES.push_back(create_wasm_server(((String)file.name())));
+      WASM_MODULES.push_back(
+        create_wasm_server(
+          ((String)file.name()),
+          ((String)file.name()).substring(1, ((String)file.name()).length()-5)
+        )
+      );
     }
     
     file = root.openNextFile();
   }
 }
 
+
 void setup() {
+  DefaultHeaders::Instance().addHeader("Access-Control-Allow-Origin", "*");
+  DefaultHeaders::Instance().addHeader("Access-Control-Allow-Headers", "*");
+
   pinMode(LED_BUILTIN, OUTPUT);
   pinMode(FLASH_PIN, OUTPUT);
 
@@ -180,59 +195,59 @@ void setup() {
   WiFi.mode(WIFI_STA);
 
 
-  // initWiFi();
+  initWiFi();
   initSPIFFS();
-  // ws = new websocket_handler(&server, "/ws");
+  ws = new websocket_handler(&server, "/ws");
 
-  // // Serial.println(run_wasm());
+  // Serial.println(run_wasm());
 
-  // // scanForWasm();
+  scanForWasm();
 
-  // // xTaskCreatePinnedToCore(NotifyWS, "NotifyWS", 1024, NULL, 2, NULL, CORE_2);
-  // // ws.notify("Test");
+  // xTaskCreatePinnedToCore(NotifyWS, "NotifyWS", 1024, NULL, 2, NULL, CORE_2);
+  // ws.notify("Test");
 
-  // server.on("/doUpload", HTTP_POST, [](AsyncWebServerRequest *request) {},
-  //     [](AsyncWebServerRequest *request, const String& filename, size_t index, uint8_t *data,
-  //                   size_t len, bool final) {handleUpload(request, filename, index, data, len, final);}
-  // );
+  server.on("/doUpload", HTTP_POST, [](AsyncWebServerRequest *request) {},
+      [](AsyncWebServerRequest *request, const String& filename, size_t index, uint8_t *data,
+                    size_t len, bool final) {handleUpload(request, filename, index, data, len, final);}
+  );
 
-  // /*
-  // //  WS data
-  // //  const char * SPIFFS_files []
-  // //  String WASM_MODULES []
-  // //  unsigned int size_t SPIFFS free bytes
-  // //  
-  // */
+  /*
+  //  WS data
+  //  const char * SPIFFS_files []
+  //  String WASM_MODULES []
+  //  unsigned int size_t SPIFFS free bytes
+  //  
+  */
 
-  // server.on("/metrics", HTTP_GET, [](AsyncWebServerRequest *request) {
-  //   StaticJsonDocument<600> data;
-  //   JsonObject JSON_Root = data.to<JsonObject>();
-  //   JsonArray Files = JSON_Root.createNestedArray("files");
-  //   JsonObject Ports = JSON_Root.createNestedObject("ports");
-  //   // JsonArray WASM = JSON_Root.createNestedArray("wasm");
+  server.on("/metrics", HTTP_GET, [](AsyncWebServerRequest *request) {
+    StaticJsonDocument<600> data;
+    JsonObject JSON_Root = data.to<JsonObject>();
+    JsonArray Files = JSON_Root.createNestedArray("files");
+    JsonObject Ports = JSON_Root.createNestedObject("ports");
+    // JsonArray WASM = JSON_Root.createNestedArray("wasm");
 
-  //   data["Used bytes"] = SPIFFS.usedBytes();
+    data["Used bytes"] = SPIFFS.usedBytes();
 
-  //   File root = SPIFFS.open("/");
-  //   File file = root.openNextFile("r");
+    File root = SPIFFS.open("/");
+    File file = root.openNextFile("r");
 
-  //   while(file){
-  //     Files.add(String((const __FlashStringHelper*) file.name()));
-  //     file = root.openNextFile();
-  //   }
+    while(file){
+      Files.add(String((const __FlashStringHelper*) file.name()));
+      file = root.openNextFile();
+    }
 
-  //   // if(WASM_MODULES.size() > 0){
-  //   for(auto & server : WASM_MODULES){
-  //     Ports[server->module->path] = server->port;
-  //   }
-  //   // }
+    // if(WASM_MODULES.size() > 0){
+    for(auto & server : WASM_MODULES){
+      Ports[server->module->path] = server->port;
+    }
+    // }
 
-  //   String response;
-  //   serializeJson(data, response);
-  //   request->send(200, "application/json", response);
-  // });
+    String response;
+    serializeJson(data, response);
+    request->send(200, "application/json", response);
+  });
 
-  // server.serveStatic("/", SPIFFS, "/").setDefaultFile("index.html");
+  server.serveStatic("/", SPIFFS, "/").setDefaultFile("index.html");
 
 
 //
@@ -242,36 +257,36 @@ void setup() {
   //   request->send(200, "text/plain", String(run_wasm()));    
   // });
 
-  // server.begin();
+  server.begin();
   // wast.begin();
 
 
-  File file = SPIFFS.open("/testing.wasm", "r");
+  // File file = SPIFFS.open("/optimized.wasm", "r");
   
-  if(!file) Serial.println("error Reading file");
-  else{
-        // String s=file.readString();
-        size_t size = file.size();
-        Serial.println("Size : "+String(size));
-        char buf[size];
-        int siz = file.readBytes(buf,size);
-        // Serial.println("File :");
-        // Serial.println(s);
+  // if(!file) Serial.println("error Reading file");
+  // else{
+  //       // String s=file.readString();
+  //       size_t size = file.size();
+  //       Serial.println("Size : "+String(size));
+  //       char buf[size];
+  //       int siz = file.readBytes(buf,size);
+  //       // Serial.println("File :");
+  //       // Serial.println(s);
 
 
-        Serial.println("File :");
-        Serial.println("Size : "+ String(siz)); 
+  //       Serial.println("File :");
+  //       Serial.println("Size : "+ String(siz)); 
 
-        Serial.println("HERE !");
-      // uint8_t module [int(size)];
-      // file.read(module, size);
-      // for(int i = 0; i<10;i++) Serial.println(String(module[i],HEX));
-      // Serial.println(String(*module));
-      // Serial.println(String(*module,HEX));
-      // Serial.println(String(*module,BIN));
-  }
+  //       Serial.println("HERE !");
+  //     // uint8_t module [int(size)];
+  //     // file.read(module, size);
+  //     // for(int i = 0; i<10;i++) Serial.println(String(module[i],HEX));
+  //     // Serial.println(String(*module));
+  //     // Serial.println(String(*module,HEX));
+  //     // Serial.println(String(*module,BIN));
+  // }
 
-  Serial.println("HERE ??");
+  // Serial.println("HERE ??");
   // Serial.println("First :"+fib32_wasm[40]);
 }
 

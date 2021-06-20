@@ -5,6 +5,9 @@
 <script>
 export default {
   name: 'FileExplorer',
+  props: {
+    msg:String,
+  },
   data: function() {
     return {
     }

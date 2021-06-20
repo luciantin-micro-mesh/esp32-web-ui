@@ -21,7 +21,7 @@ private:
 public:
     const String path;
     M3Result result = m3Err_none;
-    unsigned output;
+    unsigned output = 0;
 
     wasm3_module_handler(String filepath, fs::SPIFFSFS *SPIFFS);
     bool load(); // load wasm module from filepath
